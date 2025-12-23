@@ -35,6 +35,11 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+
+  useEffect(() => {
+    localStorage.setItem('gemini_api_key', apiKey);
+  }, [apiKey]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -98,7 +103,7 @@ const App: React.FC = () => {
     addLog("Authenticating with Google Gemini API...");
 
     try {
-      const plan = await generateEditPlan(project, videos);
+      const plan = await generateEditPlan(project, videos, apiKey);
       setEditPlan(plan);
       addLog("AI Analysis Complete: Logic sequence generated.");
 
@@ -139,8 +144,8 @@ const App: React.FC = () => {
           onClick={startEditing}
           disabled={isProcessing || videos.length === 0}
           className={`px-5 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all ${isProcessing || videos.length === 0
-              ? 'bg-white/5 text-white/20'
-              : 'bg-white text-black hover:bg-cyan-400 hover:text-black hover:scale-105 active:scale-95'
+            ? 'bg-white/5 text-white/20'
+            : 'bg-white text-black hover:bg-cyan-400 hover:text-black hover:scale-105 active:scale-95'
             }`}
         >
           {isProcessing ? (
@@ -226,14 +231,29 @@ const App: React.FC = () => {
                     key={focus}
                     onClick={() => setProject({ ...project, musicalFocus: focus.toLowerCase() as any })}
                     className={`px-3 py-2 rounded text-[10px] font-bold uppercase transition-all ${project.musicalFocus === focus.toLowerCase()
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                        : 'bg-white/5 text-neutral-500 hover:bg-white/10'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                      : 'bg-white/5 text-neutral-500 hover:bg-white/10'
                       }`}
                   >
                     {focus.replace('-', ' ')}
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* API Key Configuration */}
+            <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 md:col-span-2 hover:border-white/10 transition-colors">
+              <div className="flex items-center gap-2 mb-4">
+                <CommandLineIcon className="w-4 h-4 text-green-500" />
+                <h3 className="text-sm font-bold text-white/80">API Configuration</h3>
+              </div>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Paste your Google Gemini API Key here..."
+                className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-[10px] font-mono text-cyan-400 placeholder:text-neutral-700 focus:outline-none focus:border-cyan-500/50 transition-all"
+              />
             </div>
           </section>
 

@@ -4,7 +4,8 @@ import { EditProject, VideoFile, EditPlan } from "../types";
 
 export const generateEditPlan = async (
   project: EditProject,
-  videos: VideoFile[]
+  videos: VideoFile[],
+  apiKey?: string
 ): Promise<EditPlan> => {
   const videoDetails = videos.map(v => ({
     id: v.id,
@@ -18,12 +19,12 @@ Your task is to analyze video metadata and create a frame-accurate edit plan.
 Output MUST be valid JSON adhering to the provided schema.
 Focus on ${project.musicalFocus} and ensure a build-up in energy.`;
 
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Start failure: API Key not found. Please check your .env.local file.");
+  const finalApiKey = apiKey || process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!finalApiKey) {
+    throw new Error("Start failure: API Key not found. Please enter your API key in the settings or check your .env.local file.");
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: finalApiKey });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Generate a professional edit plan for:
