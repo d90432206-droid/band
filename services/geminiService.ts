@@ -6,8 +6,6 @@ export const generateEditPlan = async (
   project: EditProject,
   videos: VideoFile[]
 ): Promise<EditPlan> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
   const videoDetails = videos.map(v => ({
     id: v.id,
     name: v.file.name,
@@ -21,6 +19,12 @@ Output MUST be valid JSON adhering to the provided schema.
 Focus on ${project.musicalFocus} and ensure a build-up in energy.`;
 
   try {
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Start failure: API Key not found. Please check your .env.local file.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Generate a professional edit plan for:
