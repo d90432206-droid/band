@@ -384,13 +384,9 @@ const App: React.FC = () => {
           </header>
 
           <div className="flex-1 grid grid-cols-1 md:grid-cols-[400px_1fr] p-8 gap-8 overflow-hidden">
-            <div className="aspect-[9/16] bg-neutral-900 rounded-2xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center">
-              <PlayIcon className="w-16 h-16 text-white/20 hover:text-white/80 transition-all cursor-pointer hover:scale-110" />
-              <div className="absolute top-4 left-4 bg-black/60 px-2 py-1 rounded text-[8px] font-mono text-cyan-400 border border-cyan-400/30">PREVIEW_GEN_01.MP4</div>
-              {project.logoPreviewUrl && (
-                <img src={project.logoPreviewUrl} className="absolute bottom-10 right-10 w-16 opacity-30 grayscale" alt="watermark" />
-              )}
-            </div>
+
+            {/* Dynamic Preview Player Component */}
+            <PreviewPlayer editPlan={editPlan} videos={videos} logoPreviewUrl={project.logoPreviewUrl} />
 
             <div className="space-y-10 overflow-y-auto pr-4">
               <div>
@@ -420,8 +416,11 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex gap-4 pt-6 border-t border-white/5">
-                <button className="flex-1 bg-white text-black py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-cyan-400 transition-colors">
-                  <ArrowDownTrayIcon className="w-4 h-4" /> Export 4K Master
+                <button
+                  onClick={() => handleExport(editPlan, videos, project)}
+                  className="flex-1 bg-white text-black py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-cyan-400 transition-colors"
+                >
+                  <ArrowDownTrayIcon className="w-4 h-4" /> Export 4K Build Script
                 </button>
                 <button className="flex-1 bg-neutral-800 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-neutral-700 transition-colors">
                   <SparklesIcon className="w-4 h-4" /> Post to Socials
@@ -434,5 +433,127 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+// Preview Player Logic
+const PreviewPlayer = ({ editPlan, videos, logoPreviewUrl }: { editPlan: EditPlan | null, videos: VideoFile[], logoPreviewUrl: string | null }) => {
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const currentScene = editPlan?.scenes[currentSceneIndex];
+  const currentVideo = videos.find(v => v.id === currentScene?.clipId);
+
+  useEffect(() => {
+    if (isPlaying && currentScene) {
+      const timer = setInterval(() => {
+        setTimeRemaining(prev => Math.max(0, prev - 1));
+      }, 1000);
+
+      const nextTimer = setTimeout(() => {
+        if (currentSceneIndex < (editPlan?.scenes.length || 0) - 1) {
+          setCurrentSceneIndex(prev => prev + 1);
+          setTimeRemaining(editPlan?.scenes[currentSceneIndex + 1].duration || 0);
+        } else {
+          setIsPlaying(false);
+          setCurrentSceneIndex(0);
+        }
+      }, currentScene.duration * 1000);
+
+      return () => {
+        clearInterval(timer);
+        clearTimeout(nextTimer);
+      };
+    }
+  }, [isPlaying, currentSceneIndex, currentScene, editPlan]);
+
+  useEffect(() => {
+    if (currentScene) {
+      setTimeRemaining(currentScene.duration);
+    }
+  }, [currentScene]);
+
+  // When video element is ready or source changes, try to play if isPlaying is true
+  useEffect(() => {
+    if (videoRef.current && isPlaying) {
+      videoRef.current.currentTime = currentScene?.startTime || 0;
+      videoRef.current.play().catch(e => console.log("Autoplay blocked usually", e));
+    } else if (videoRef.current && !isPlaying) {
+      videoRef.current.pause();
+    }
+  }, [currentVideo, isPlaying, currentScene]);
+
+  if (!currentScene || !currentVideo) return <div className="text-white">Loading Preview...</div>;
+
+  return (
+    <div className="aspect-[9/16] bg-neutral-900 rounded-2xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center bg-black">
+      <video
+        ref={videoRef}
+        src={currentVideo.previewUrl}
+        className="w-full h-full object-cover"
+        muted // Muted for auto-play policy
+        playsInline
+      />
+
+      {/* Overlay UI */}
+      <div className="absolute top-4 left-4 bg-black/60 px-2 py-1 rounded text-[8px] font-mono text-cyan-400 border border-cyan-400/30 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+        PREVIEWING SCENE {currentSceneIndex + 1} / {editPlan?.scenes.length}
+      </div>
+
+      <div className="absolute top-4 right-4 bg-black/60 px-2 py-1 rounded text-[8px] font-mono text-white/70 border border-white/10">
+        {timeRemaining}s REMAINING
+      </div>
+
+      {!isPlaying && (
+        <div
+          onClick={() => setIsPlaying(true)}
+          className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer hover:bg-black/20 transition-all group"
+        >
+          <PlayIcon className="w-20 h-20 text-white/80 group-hover:scale-110 transition-transform" />
+        </div>
+      )}
+
+      {logoPreviewUrl && (
+        <img src={logoPreviewUrl} className="absolute bottom-10 right-10 w-16 opacity-30 grayscale" alt="watermark" />
+      )}
+    </div>
+  );
+};
+
+// Export Function
+const handleExport = (plan: EditPlan | null, videos: VideoFile[], project: EditProject) => {
+  if (!plan) return;
+
+  const scriptContent = `
+# BandFlow AI - Auto-Edit Script (FFMPEG)
+# Generated for project: ${project.title}
+# Make sure you have ffmpeg installed.
+
+mkdir -p output_segments
+
+${plan.scenes.map((scene, i) => {
+    const video = videos.find(v => v.id === scene.clipId);
+    if (!video) return `# Missing video for scene ${i}`;
+    return `ffmpeg -i "${video.file.name}" -ss ${scene.startTime} -t ${scene.duration} -c:v libx264 -c:a aac "output_segments/scene_${String(i).padStart(3, '0')}.mp4"`;
+  }).join('\n')}
+
+# Concatenate all segments
+# Note: You need to create a list.txt file with: file 'output_segments/scene_000.mp4', etc.
+# This is a simplified generation script.
+echo "Rendering complete. Please merge segments manually or use a concat filter."
+`;
+
+  const blob = new Blob([scriptContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bandflow_build_script_${Date.now()}.sh`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 
 export default App;
