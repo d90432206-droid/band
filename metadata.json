@@ -1,0 +1,8 @@
+{
+  "name": "BandFlow AI: Professional Concert Video Editor",
+  "description": "A high-end AI-powered video editing suite for bands to create stunning 2K/4K promotional clips from multiple raw concert footages.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
